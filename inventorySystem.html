@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rice Inventory Management System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #f0f4f8; padding: 15px; }
+        h1 { text-align: center; color: #2d3748; margin-bottom: 20px; }
+        h2 { font-size: 1.1rem; color: #2b6cb0; margin-bottom: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .inventory-section { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background: #ebf8ff; color: #2c5282; font-weight: 600; }
+        tr:hover { background: #f7fafc; }
+        .summary-bar { display: flex; gap: 25px; background: white; border-radius: 8px; padding: 15px 20px; margin-bottom: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); flex-wrap: wrap; }
+        .summary-item { font-size: 1.05rem; font-weight: 600; }
+        .income { color: #2f855a; }
+        .cost { color: #e53e3e; }
+        .profit { color: #2b6cb0; }
+        .main-grid { display: grid; grid-template-columns: 280px 1fr; gap: 15px; }
+        @media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } }
+        .buttons-panel { background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+        button { width: 100%; padding: 12px; margin: 6px 0; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+        button:active { transform: scale(0.98); }
+        .btn-primary { background: #3182ce; color: white; }
+        .btn-primary:hover { background: #2b6cb0; }
+        .btn-success { background: #38a169; color: white; }
+        .btn-success:hover { background: #2f855a; }
+        .btn-warning { background: #ed8936; color: white; }
+        .btn-warning:hover { background: #dd6b20; }
+        .btn-danger { background: #e53e3e; color: white; }
+        .btn-danger:hover { background: #c53030; }
+        .btn-info { background: #805ad5; color: white; }
+        .btn-info:hover { background: #6b46c1; }
+        hr { border: none; border-top: 1px solid #e2e8f0; margin: 12px 0; }
+        .sale-panel { background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+        .sale-items { min-height: 200px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: 12px; background: #fafbfc; }
+        .sale-item { padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+        .sale-totals { margin-top: 10px; padding: 10px; background: #f0fff4; border-radius: 6px; }
+        .sale-total-row { margin: 5px 0; font-weight: 600; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto; }
+        .modal-content h3 { margin-bottom: 15px; color: #2d3748; }
+        label { display: block; margin: 10px 0 4px; font-weight: 500; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 5px; font-size: 1rem; }
+        input[type="checkbox"] { width: auto; margin-right: 8px; transform: scale(1.2); }
+        .checkbox-row { display: flex; align-items: center; margin: 15px 0; }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-buttons button { flex: 1; }
+        .log-textarea { width: 100%; height: 400px; border: 1px solid #cbd5e0; border-radius: 5px; padding: 10px; font-family: monospace; font-size: 0.9rem; resize: vertical; }
+        .status-bar { margin-top: 15px; padding: 10px 15px; background: #edf2f7; border-radius: 6px; color: #2d3748; font-size: 0.9rem; }
+        .empty-hint { color: #718096; font-style: italic; padding: 10px; text-align: center; }
+        .hint-box { background: #fef5e7; border-left: 4px solid #f6ad55; padding: 10px; margin: 10px 0; border-radius: 4px; font-size: 0.9rem; }
+        .error-text { color: #e53e3e; font-size: 0.85rem; margin-top: 5px; min-height: 1.2rem; }
+        .info-note { color: #2b6cb0; font-size: 0.85rem; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <h1>📦 Rice Inventory Management System</h1>
+    <div class="container">
+        <div class="inventory-section">
+            <h2>📋 Inventory — Stock, Cost & Price</h2>
+            <table id="inventoryTable">
+                <thead>
+                    <tr>
+                        <th>Rice Type</th>
+                        <th>Stock (kg)</th>
+                        <th>Avg Cost/kg (RM)</th>
+                        <th>Sell Price/kg (RM)</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryBody"></tbody>
+            </table>
+        </div>
+        <div class="summary-bar">
+            <div class="summary-item income">Total Income: RM <span id="totalIncome">0.00</span></div>
+            <div class="summary-item cost">Total Cost: RM <span id="totalCost">0.00</span></div>
+            <div class="summary-item profit">Total Profit: RM <span id="totalProfit">0.00</span></div>
+        </div>
+        <div class="main-grid">
+            <div class="buttons-panel">
+                <h2>Operations</h2>
+                <button class="btn-primary" onclick="openModal('addRice')">➕ Add New Rice</button>
+                <button class="btn-danger" onclick="openModal('removeRice')">🗑️ Remove Rice Type</button>
+                <hr>
+                <button class="btn-success" onclick="openModal('stockIn')">📥 STOCK IN</button>
+                <button class="btn-warning" onclick="openModal('stockOut')">📤 STOCK OUT</button>
+				<hr>
+                <button class="btn-primary" onclick="openModal('adjustPrice')">💰 Adjust Sell Price</button>
+                <hr>
+                <button class="btn-danger" onclick="clearSale()">🗑️ Clear List</button>
+                <hr>
+                <button class="btn-info" onclick="showLog()">📋 Transaction Log</button>
+                <button class="btn-info" onclick="showSales()">📊 Sales & Profit Report</button>
+                <button class="btn-primary" onclick="refreshAll()">🔄 Refresh</button>
+				<button class="btn-danger" onclick="resetAllData()">🗑️ Clear All Data</button>
+            </div>
+            <div class="sale-panel">
+                <h2>📤 Stock Out List</h2>
+                <div class="sale-items" id="saleItems">
+                    <div class="empty-hint">No items added yet.<br><br>Step 1: Click "➕ Add New Rice"<br>Step 2: Then click "📤 STOCK OUT"</div>
+                </div>
+                <div class="sale-totals">
+                    <div class="sale-total-row">Total Income: RM <span id="saleIncome">0.00</span></div>
+                    <div class="sale-total-row">Total Cost: RM <span id="saleCost">0.00</span></div>
+                    <div class="sale-total-row" style="color:green;">Total Profit: RM <span id="saleProfit">0.00</span></div>
+                </div>
+                <p class="info-note">💡 Uncheck "Include in Sales" for waste/loss — stock deducts but does not affect sales figures</p>
+            </div>
+        </div>
+        <div class="status-bar" id="statusBar">Ready — Please add rice type to start</div>
+    </div>
+    <!-- Add Rice -->
+    <div class="modal" id="modal_addRice">
+        <div class="modal-content">
+            <h3>Add New Rice Type</h3>
+            <label>Rice Name *</label>
+            <input type="text" id="ar_name" placeholder="e.g. Super Rice">
+            <label>Initial Stock (kg) *</label>
+            <input type="number" step="0.01" id="ar_stock" placeholder="Example: 50">
+            <label>Cost per kg (RM) *</label>
+            <input type="number" step="0.01" id="ar_cost" placeholder="Example: 2.50">
+            <label>Selling Price per kg (RM) *</label>
+            <input type="number" step="0.01" id="ar_price" placeholder="Example: 3.80">
+            <div class="error-text" id="ar_error"></div>
+            <div class="modal-buttons">
+                <button class="btn-primary" onclick="addRice()">✅ Add Rice</button>
+                <button onclick="closeModal('addRice')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <!-- Remove Rice Type -->
+    <div class="modal" id="modal_removeRice">
+        <div class="modal-content">
+            <h3>🗑️ Remove Rice Type</h3>
+            <label>Select Rice to Remove *</label>
+            <select id="rr_name"></select>
+            <p class="info-note">⚠️ This will permanently delete this rice type from inventory.</p>
+            <div class="error-text" id="rr_error"></div>
+            <div class="modal-buttons">
+                <button class="btn-danger" onclick="removeRice()">🗑️ Remove Rice</button>
+                <button onclick="closeModal('removeRice')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <!-- Stock In -->
+    <div class="modal" id="modal_stockIn">
+        <div class="modal-content">
+            <h3>📥 Stock In</h3>
+            <label>Select Rice Type *</label>
+            <select id="si_name"></select>
+            <label>Quantity to Add (kg) *</label>
+            <input type="number" step="0.01" id="si_qty" placeholder="Example: 20">
+            <label>Purchase Cost per kg (RM) *</label>
+            <input type="number" step="0.01" id="si_cost" placeholder="Example: 2.60">
+            <small style="color:blue;">Avg cost updates automatically</small>
+            <div class="error-text" id="si_error"></div>
+            <div class="modal-buttons">
+                <button class="btn-success" onclick="stockIn()">Confirm Stock In</button>
+                <button onclick="closeModal('stockIn')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <!-- Stock Out (Renamed from Add to Sale) -->
+    <div class="modal" id="modal_stockOut">
+        <div class="modal-content">
+            <h3>📤 Stock Out</h3>
+            <label>Select Rice Type *</label>
+            <select id="so_name"></select>
+            <label>Quantity to Deduct (kg) *</label>
+            <input type="number" step="0.01" id="so_qty" placeholder="Example: 3">
+            <label class="checkbox-row">
+                <input type="checkbox" id="so_includeSales" checked>
+                <strong>Include in Sales & Profit Calculation</strong>
+            </label>
+            <small style="color:green;">Checked = Normal Sale → Income & Profit tracked<br>Unchecked = Waste/Loss → Only stock deducted, no sales record</small>
+            <div class="error-text" id="so_error"></div>
+            <div class="modal-buttons">
+                <button class="btn-warning" onclick="stockOut()">Confirm Stock Out</button>
+                <button onclick="closeModal('stockOut')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <!-- Adjust Price -->
+    <div class="modal" id="modal_adjustPrice">
+        <div class="modal-content">
+            <h3>💰 Adjust Selling Price</h3>
+            <label>Select Rice Type *</label>
+            <select id="ap_name"></select>
+            <label>New Selling Price per kg (RM) *</label>
+            <input type="number" step="0.01" id="ap_price" placeholder="Example: 4.00">
+            <div class="error-text" id="ap_error"></div>
+            <div class="modal-buttons">
+                <button class="btn-primary" onclick="adjustPrice()">Update Price</button>
+                <button onclick="closeModal('adjustPrice')">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <!-- Log Modal -->
+    <div class="modal" id="modal_log">
+        <div class="modal-content" style="max-width:700px;">
+            <h3>📋 Transaction Log</h3>
+            <textarea class="log-textarea" id="logContent" readonly></textarea>
+            <div class="modal-buttons">
+                <button onclick="closeModal('log')">Close</button>
+            </div>
+        </div>
+    </div>
+    <!-- Sales Report Modal -->
+    <div class="modal" id="modal_sales">
+        <div class="modal-content" style="max-width:750px;">
+            <h3>📊 Sales & Profit Report</h3>
+            <textarea class="log-textarea" id="salesContent" readonly></textarea>
+            <div class="modal-buttons">
+                <button onclick="closeModal('sales')">Close</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let riceTypes = {};
+        let transactionLog = [];
+        let salesRecords = [];
+        let stockOutList = [];
+        const STORAGE_KEY = 'rice_inventory_data';
+        function getTimestamp() {
+            const d = new Date();
+            return d.toISOString().replace('T', ' ').substring(0, 19);
+        }
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                riceTypes, transactionLog, salesRecords, stockOutList
+            }));
+        }
+        function loadData() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                try {
+                    const data = JSON.parse(raw);
+                    riceTypes = data.riceTypes || {};
+                    transactionLog = data.transactionLog || [];
+                    salesRecords = data.salesRecords || [];
+                    stockOutList = data.stockOutList || [];
+                } catch (e) {
+                    console.error('Load error:', e);
+                    alert('⚠️ Previous data corrupted — starting fresh');
+                    riceTypes = {};
+                    transactionLog = [];
+                    salesRecords = [];
+                    stockOutList = [];
+                }
+            }
+        }
+        function logAction(action, details) {
+            transactionLog.push({ timestamp: getTimestamp(), action, details });
+            saveData();
+        }
+        function setStatus(msg) {
+            document.getElementById('statusBar').textContent = msg;
+        }
+        function clearError(id) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '';
+        }
+        function showError(id, msg) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '❌ ' + msg;
+        }
+        function hasRice() {
+            return Object.keys(riceTypes).length > 0;
+        }
+        function getNum(val) {
+            const n = parseFloat(val);
+            return isNaN(n) ? null : n;
+        }
+        function addRice() {
+            clearError('ar_error');
+            const name = document.getElementById('ar_name').value.trim();
+            const stock = getNum(document.getElementById('ar_stock').value);
+            const cost = getNum(document.getElementById('ar_cost').value);
+            const price = getNum(document.getElementById('ar_price').value);
+            if (!name) return showError('ar_error', 'Enter rice name');
+            if (stock === null) return showError('ar_error', 'Enter valid stock number');
+            if (stock < 0) return showError('ar_error', 'Stock cannot be negative');
+            if (cost === null) return showError('ar_error', 'Enter valid cost number');
+            if (cost < 0) return showError('ar_error', 'Cost cannot be negative');
+            if (price === null || price <= 0) return showError('ar_error', 'Price must be greater than 0');
+            if (riceTypes[name]) return showError('ar_error', `"${name}" already exists`);
+            riceTypes[name] = { stock, price_per_kg: price, cost_per_kg: cost };
+            logAction('ADD', `${name} | Stock:${stock}kg | Cost:RM${cost}/kg | Sell:RM${price}/kg`);
+            saveData();
+            alert('✅ Rice added successfully!');
+            closeModal('addRice');
+            document.getElementById('ar_name').value = '';
+            document.getElementById('ar_stock').value = '';
+            document.getElementById('ar_cost').value = '';
+            document.getElementById('ar_price').value = '';
+            refreshAll();
+        }
+        function removeRice() {
+            clearError('rr_error');
+            const name = document.getElementById('rr_name').value;
+            
+            if (!name) return showError('rr_error', 'Select a rice type to remove');
+            if (!riceTypes[name]) return showError('rr_error', 'Rice type not found');
+            
+            if (!confirm(`⚠️ Are you sure you want to permanently remove "${name}"?\nThis cannot be undone!`)) {
+                return;
+            }
+            
+            delete riceTypes[name];
+            logAction('REMOVE', `${name} — Rice type removed from system`);
+            saveData();
+            alert(`✅ "${name}" has been removed successfully`);
+            closeModal('removeRice');
+            refreshAll();
+        }
+        function stockIn() {
+            clearError('si_error');
+            const name = document.getElementById('si_name').value;
+            const qty = getNum(document.getElementById('si_qty').value);
+            const costPerKg = getNum(document.getElementById('si_cost').value);
+            if (!name) return showError('si_error', 'Select a rice type');
+            if (!riceTypes[name]) return showError('si_error', 'Rice not found');
+            if (qty === null || qty <= 0) return showError('si_error', 'Quantity must be > 0');
+            if (costPerKg === null || costPerKg < 0) return showError('si_error', 'Enter valid cost');
+            const oldStock = riceTypes[name].stock;
+            const oldCost = riceTypes[name].cost_per_kg;
+            const totalValueBefore = oldStock * oldCost;
+            const newStock = oldStock + qty;
+            const totalNewValue = totalValueBefore + (qty * costPerKg);
+            riceTypes[name].stock = newStock;
+            riceTypes[name].cost_per_kg = totalNewValue / newStock;
+            
+            logAction('STOCK_IN', `${name}: +${qty}kg @ RM${costPerKg}/kg | Avg:RM${riceTypes[name].cost_per_kg.toFixed(2)}/kg`);
+            saveData();
+            alert(`✅ Stock In recorded!\n${name}: +${qty}kg`);
+            closeModal('stockIn');
+            document.getElementById('si_qty').value = '';
+            document.getElementById('si_cost').value = '';
+            refreshAll();
+        }
+        function stockOut() {
+            clearError('so_error');
+            const name = document.getElementById('so_name').value;
+            const qty = getNum(document.getElementById('so_qty').value);
+            const includeSales = document.getElementById('so_includeSales').checked;
+            if (!name) return showError('so_error', 'Select a rice type');
+            if (!riceTypes[name]) return showError('so_error', 'Rice not found');
+            if (qty === null || qty <= 0) return showError('so_error', 'Quantity must be > 0');
+            if (riceTypes[name].stock < qty) {
+                return showError('so_error', `Insufficient stock: ${riceTypes[name].stock.toFixed(2)}kg available`);
+            }
+            const price = riceTypes[name].price_per_kg;
+            const cost = riceTypes[name].cost_per_kg;
+            const income = qty * price;
+            const totalCost = qty * cost;
+            const profit = income - totalCost;
+            // Deduct stock immediately
+            riceTypes[name].stock -= qty;
+            // Add to list
+            stockOutList.push({
+                name,
+                quantity: qty,
+                includeSales,
+                pricePerKg: price,
+                costPerKg: cost,
+                income,
+                cost: totalCost,
+                profit,
+                timestamp: getTimestamp()
+            });
+            // If including in sales, record it
+            if (includeSales) {
+                salesRecords.push({
+                    item: name,
+                    quantity_kg: qty,
+                    total_income: income,
+                    total_cost: totalCost,
+                    profit,
+                    timestamp: getTimestamp()
+                });
+                logAction('SALE', `${name}: -${qty}kg (SALE) | Income:RM${income.toFixed(2)} | Cost:RM${totalCost.toFixed(2)} | Profit:RM${profit.toFixed(2)}`);
+            } else {
+                logAction('STOCK_OUT_NO_SALE', `${name}: -${qty}kg (WASTE/LOSS — excluded from sales)`);
+            }
+            saveData();
+            alert(`✅ Stock Out recorded!\n${name}: -${qty}kg\n${includeSales ? '✅ Included in Sales' : '⚠️ Excluded from Sales (Waste/Loss)'}`);
+            closeModal('stockOut');
+            document.getElementById('so_qty').value = '';
+            updateStockOutDisplay();
+            refreshAll();
+        }
+        function adjustPrice() {
+            clearError('ap_error');
+            const name = document.getElementById('ap_name').value;
+            const newPrice = getNum(document.getElementById('ap_price').value);
+            if (!name) return showError('ap_error', 'Select a rice type');
+            if (!riceTypes[name]) return showError('ap_error', 'Rice not found');
+            if (newPrice === null || newPrice <= 0) return showError('ap_error', 'Price must be > 0');
+            const old = riceTypes[name].price_per_kg;
+            riceTypes[name].price_per_kg = newPrice;
+            logAction('PRICE', `${name}: RM${old.toFixed(2)} → RM${newPrice.toFixed(2)}`);
+            saveData();
+            alert(`✅ Price updated!\n${name}: RM${newPrice.toFixed(2)}/kg`);
+            closeModal('adjustPrice');
+            document.getElementById('ap_price').value = '';
+            refreshAll();
+        }
+        function clearSale() {
+            if (stockOutList.length === 0) {
+                alert('⚠️ No items to clear!');
+                return;
+            }
+            if (!confirm('⚠️ Clear list? Note: Stock already deducted will NOT be restored.')) {
+                return;
+            }
+            stockOutList = [];
+            saveData();
+            updateStockOutDisplay();
+            setStatus('🗑️ List cleared — note: stock already deducted remains deducted');
+        }
+        function getTotals() {
+            const income = salesRecords.reduce((s, x) => s + (x.total_income || 0), 0);
+            const cost = salesRecords.reduce((s, x) => s + (x.total_cost || 0), 0);
+            const profit = salesRecords.reduce((s, x) => s + (x.profit || 0), 0);
+            return { income, cost, profit };
+        }
+        function refreshInventory() {
+            const tbody = document.getElementById('inventoryBody');
+            tbody.innerHTML = '';
+            if (!hasRice()) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-hint">No rice added yet. Click "➕ Add New Rice" to start.</td></tr>';
+                return;
+            }
+            for (const [name, data] of Object.entries(riceTypes)) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td><strong>${name}</strong></td><td>${data.stock.toFixed(2)}</td><td>${data.cost_per_kg.toFixed(2)}</td><td>${data.price_per_kg.toFixed(2)}</td>`;
+                tbody.appendChild(row);
+            }
+        }
+        function updateSummary() {
+            const t = getTotals();
+            document.getElementById('totalIncome').textContent = t.income.toFixed(2);
+            document.getElementById('totalCost').textContent = t.cost.toFixed(2);
+            document.getElementById('totalProfit').textContent = t.profit.toFixed(2);
+        }
+        function updateStockOutDisplay() {
+            const container = document.getElementById('saleItems');
+            let totalInc = 0, totalCst = 0;
+            if (!stockOutList.length) {
+                container.innerHTML = '<div class="empty-hint">No items in list.<br>Click "📤 STOCK OUT" to add items.</div>';
+            } else {
+                container.innerHTML = stockOutList.map((itm, idx) => {
+                    if (itm.includeSales) {
+                        totalInc += itm.income;
+                        totalCst += itm.cost;
+                    }
+                    return `<div class="sale-item">
+                        <strong>${idx+1}. ${itm.name}</strong> × ${itm.quantity.toFixed(2)}kg
+                        <br>
+                        ${itm.includeSales 
+                            ? `Sell: RM${itm.pricePerKg.toFixed(2)} | Income: RM${itm.income.toFixed(2)} | Profit: RM${itm.profit.toFixed(2)}`
+                            : '<span style="color:#ed8936;">⚠️ Waste/Loss — Not included in sales</span>'
+                        }
+                    </div>`;
+                }).join('');
+            }
+            document.getElementById('saleIncome').textContent = totalInc.toFixed(2);
+            document.getElementById('saleCost').textContent = totalCst.toFixed(2);
+            document.getElementById('saleProfit').textContent = (totalInc - totalCst).toFixed(2);
+        }
+        function refreshAll() {
+            refreshInventory();
+            updateSummary();
+            updateStockOutDisplay();
+            setStatus(hasRice() ? '✅ Ready — Select operation' : 'ℹ️ Start by adding new rice type first');
+        }
+		function resetAllData() {
+			if (!confirm('⚠️ WARNING: This will DELETE ALL inventory, sales, and log data!\nThis CANNOT be undone!\n\nAre you sure?')) {
+				return;
+			}
+			// Clear all storage
+			riceTypes = {};
+			transactionLog = [];
+			salesRecords = [];
+			stockOutList = [];
+			localStorage.removeItem(STORAGE_KEY);
+			alert('✅ All data cleared!\nRestarting with blank system...');
+			refreshAll();
+		}
+        function fillSelect(selectId) {
+            const el = document.getElementById(selectId);
+            el.innerHTML = '';
+            const names = Object.keys(riceTypes);
+            if (names.length === 0) {
+                el.innerHTML = '<option value="">-- Add rice first --</option>';
+                return false;
+            }
+            el.innerHTML = '<option value="">-- Select rice --</option>';
+            names.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                el.appendChild(opt);
+            });
+            return true;
+        }
+        function openModal(id) {
+            document.getElementById(`modal_${id}`).classList.add('active');
+            if (['stockIn','stockOut','adjustPrice','removeRice'].includes(id)) {
+                const selId = {
+                    stockIn:'si_name',
+                    stockOut:'so_name',
+                    adjustPrice:'ap_name',
+                    removeRice:'rr_name'
+                }[id];
+                fillSelect(selId);
+            }
+        }
+        function closeModal(id) {
+            document.getElementById(`modal_${id}`).classList.remove('active');
+        }
+        function showLog() {
+            if (!hasRice() && transactionLog.length === 0) {
+                document.getElementById('logContent').value = 'No transactions recorded yet.\nStart by adding rice or recording stock movement.';
+            } else {
+                document.getElementById('logContent').value = transactionLog.map(r => 
+                    `[${r.timestamp}] ${r.action.padEnd(22)} - ${r.details}`
+                ).join('\n');
+            }
+            openModal('log');
+        }
+        function showSales() {
+            const t = getTotals();
+            let text = `============================================================
+OVERALL SUMMARY
+Total Income : RM ${t.income.toFixed(2)}
+Total Cost   : RM ${t.cost.toFixed(2)}
+Total Profit : RM ${t.profit.toFixed(2)}
+============================================================
+* Only items marked "Include in Sales" appear above
+* Waste/Loss items deduct stock but do NOT affect figures
+============================================================\n`;
+            
+            if (!salesRecords.length) {
+                text += '\nNo sales recorded yet.';
+            } else {
+                salesRecords.forEach(s => {
+                    text += `\n${s.timestamp}\n`;
+                    text += `  ${s.item} × ${s.quantity_kg.toFixed(2)}kg | Income:RM${s.total_income.toFixed(2)} | Cost:RM${s.total_cost.toFixed(2)} | Profit:RM${s.profit.toFixed(2)}\n`;
+                    text += '------------------------------------------------------------\n';
+                });
+            }
+            document.getElementById('salesContent').value = text;
+            openModal('sales');
+        }
+        loadData();
+        refreshAll();
+    </script>
+</body>
+</html>
