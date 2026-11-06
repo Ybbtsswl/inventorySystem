@@ -48,6 +48,11 @@
         .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
         .modal-buttons button { flex: 1; }
         .btn-row { display: flex; gap: 8px; margin: 8px 0; }
+        .edit-btn { background: #805ad5; color: white; padding: 4px 10px; font-size: 0.75rem; border-radius: 4px; border: none; cursor: pointer; margin-left: 8px; }
+        .txn-item { padding: 10px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        .txn-item:last-child { border-bottom: none; }
+        .txn-buy { color: #2f855a; font-weight: 600; }
+        .txn-sell { color: #e53e3e; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -62,6 +67,7 @@
                         <th>Stock (kg)</th>
                         <th>Avg Cost/kg (RM)</th>
                         <th>Default Sell/kg (RM)</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody id="inventoryBody"></tbody>
@@ -79,8 +85,8 @@
                 <h2>Operations</h2>
                 <button class="btn-primary" onclick="openModal('addRice')">➕ Add New Rice</button>
                 <hr>
-                <button class="btn-success" onclick="openModal('multiStockIn')">📥 MULTI STOCK IN</button>
-                <button class="btn-warning" onclick="openModal('multiStockOut')">📤 MULTI STOCK OUT</button>
+                <button class="btn-success" onclick="openModal('multiStockIn')">📥 MULTI BUY</button>
+                <button class="btn-warning" onclick="openModal('multiStockOut')">📤 MULTI SELL</button>
                 <hr>
                 <button class="btn-info" onclick="showLog()">📋 Transaction Log</button>
                 <button class="btn-primary" onclick="refreshAll()">🔄 Refresh</button>
@@ -120,16 +126,35 @@
         </div>
     </div>
 
+    <!-- EDIT RICE MODAL -->
+    <div class="modal" id="modal_editRice">
+        <div class="modal-content">
+            <h3>✏️ Edit Rice Info</h3>
+            <label>Rice Name</label>
+            <input type="text" id="er_name" disabled>
+            <label>Stock (kg)</label>
+            <input type="number" step="0.01" id="er_stock">
+            <label>Avg Cost per kg (RM)</label>
+            <input type="number" step="0.01" id="er_cost">
+            <label>Default Selling Price per kg (RM)</label>
+            <input type="number" step="0.01" id="er_price">
+            <div class="modal-buttons">
+                <button class="btn-primary" onclick="saveRiceEdit()">Save Changes</button>
+                <button onclick="closeModal('editRice')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MULTI STOCK IN -->
     <div class="modal" id="modal_multiStockIn">
         <div class="modal-content">
-            <h3>📥 Multi Stock In</h3>
+            <h3>📥 Multi Buy</h3>
             <p class="info-note">Select rice type, quantity, and cost per kg for each item.</p>
             <div id="stockInRows"></div>
             <button class="btn-primary btn-sm" onclick="addStockInRow()" style="margin:8px 0;">➕ Add Another Rice Type</button>
             <div class="subtotal-bar" id="stockInSubtotal">Total Cost: RM 0.00</div>
             <div class="modal-buttons">
-                <button class="btn-success" onclick="confirmMultiStockIn()">✅ Confirm All Stock In</button>
+                <button class="btn-success" onclick="confirmMultiStockIn()">✅ Confirm All Buy</button>
                 <button onclick="closeModal('multiStockIn')">Cancel</button>
             </div>
         </div>
@@ -138,13 +163,13 @@
     <!-- MULTI STOCK OUT — Quantity Change Recalculates Total -->
     <div class="modal" id="modal_multiStockOut">
         <div class="modal-content">
-            <h3>📤 Multi Stock Out — Auto Recalculate</h3>
+            <h3>📤 Multi Sell — Auto Recalculate</h3>
             <p class="info-note">Select rice → enter quantity → total price auto-calculates. Edit total to set custom price/kg; changing quantity preserves your rate.</p>
             <div id="stockOutRows"></div>
             <button class="btn-primary btn-sm" onclick="addStockOutRow()" style="margin:8px 0;">➕ Add Another Rice Type</button>
             <div class="subtotal-bar" id="stockOutSubtotal">Total Selling Value: RM 0.00</div>
             <div class="modal-buttons">
-                <button class="btn-warning" onclick="confirmMultiStockOut()">✅ Confirm All Stock Out</button>
+                <button class="btn-warning" onclick="confirmMultiStockOut()">✅ Confirm All Sell</button>
                 <button onclick="closeModal('multiStockOut')">Cancel</button>
             </div>
         </div>
@@ -182,6 +207,13 @@
         function getTimestamp() {
             return new Date().toISOString().replace('T', ' ').substring(0, 19);
         }
+        function getDateOnly() {
+            const d = new Date();
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        }
         function saveData() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify({riceTypes, transactionLog, salesRecords}));
         }
@@ -197,7 +229,7 @@
             }
         }
         function logAction(a, d) {
-            transactionLog.push({t:getTimestamp(),a,d});
+            transactionLog.push({t:getTimestamp(), date:getDateOnly(), a, d});
             saveData();
         }
         function getNum(v) { const n=parseFloat(v); return isNaN(n)?null:n; }
@@ -205,6 +237,33 @@
             let h = '<option value="">-- Select --</option>';
             for(const n in riceTypes) h += `<option value="${n}">${n}</option>`;
             return h;
+        }
+
+        // ===== EDIT RICE =====
+        function openEditRice(name) {
+            const d = riceTypes[name];
+            if (!d) return;
+            document.getElementById('er_name').value = name;
+            document.getElementById('er_stock').value = d.stock.toFixed(2);
+            document.getElementById('er_cost').value = d.cost_per_kg.toFixed(2);
+            document.getElementById('er_price').value = d.price_per_kg.toFixed(2);
+            openModal('editRice');
+        }
+        function saveRiceEdit() {
+            const name = document.getElementById('er_name').value;
+            const stock = getNum(document.getElementById('er_stock').value);
+            const cost = getNum(document.getElementById('er_cost').value);
+            const price = getNum(document.getElementById('er_price').value);
+            if (!name || !riceTypes[name]) return alert('Rice not found');
+            if (stock === null || stock < 0) return alert('Invalid stock');
+            if (cost === null || cost < 0) return alert('Invalid cost');
+            if (price === null || price <= 0) return alert('Invalid price');
+            riceTypes[name] = {stock, cost_per_kg: cost, price_per_kg: price};
+            logAction('EDIT', `${name} → stock:${stock}kg cost:RM${cost} sell:RM${price}/kg`);
+            saveData();
+            alert('✅ Rice info updated');
+            closeModal('editRice');
+            refreshAll();
         }
 
         // ===== MULTI STOCK IN =====
@@ -262,44 +321,34 @@
             updateOutSubtotal();
         }
         function onOutRiceChange(id) {
-            // Reset to default rate when rice changes
             const row = document.getElementById(`out_row_${id}`);
             row.dataset.customRate = "0";
             row.querySelector('.totalPriceOut').classList.add('default-val');
             updateOutRow(id);
         }
         function onQtyChange(id) {
-            // When quantity changes: recalculate total
             const row = document.getElementById(`out_row_${id}`);
             const sel = row.querySelector('.riceSelOut').value;
             const qty = getNum(row.querySelector('.qtyOut').value) || 0;
-            
             if (!sel || qty <= 0) {
                 updateOutRow(id);
                 return;
             }
-            
             const isCustom = row.dataset.customRate === "1";
             let priceKg;
-            
             if (isCustom) {
-                // Preserve the custom price/kg, recalculate total
                 const existingTotal = getNum(row.querySelector('.totalPriceOut').value) || 0;
                 const oldQty = getNum(row.querySelector('.qtyOut').defaultValue) || qty;
                 priceKg = oldQty > 0 ? existingTotal / oldQty : riceTypes[sel].price_per_kg;
                 row.querySelector('.totalPriceOut').value = (qty * priceKg).toFixed(2);
             } else {
-                // Use default selling price/kg, recalculate total
                 priceKg = riceTypes[sel].price_per_kg;
                 row.querySelector('.totalPriceOut').value = (qty * priceKg).toFixed(2);
             }
-            
-            // Save current qty for next change reference
             row.querySelector('.qtyOut').defaultValue = qty;
             updateOutRow(id);
         }
         function onTotalPriceEdit(id) {
-            // User manually edited total price → mark as custom rate
             const row = document.getElementById(`out_row_${id}`);
             row.dataset.customRate = "1";
             row.querySelector('.totalPriceOut').classList.remove('default-val');
@@ -353,7 +402,7 @@
                 items.push({name, qty, costKg});
             });
             if (!valid || !items.length) return;
-            if (!confirm(`Confirm stock in ${items.length} item(s)?`)) return;
+            if (!confirm(`Confirm buy ${items.length} item(s)?`)) return;
             items.forEach(it => {
                 const oldStock = riceTypes[it.name].stock;
                 const oldCostKg = riceTypes[it.name].cost_per_kg;
@@ -361,10 +410,10 @@
                 const newAvgCostKg = ((oldStock * oldCostKg) + (it.qty * it.costKg)) / newStock;
                 riceTypes[it.name].stock = newStock;
                 riceTypes[it.name].cost_per_kg = newAvgCostKg;
-                logAction('STOCKIN', `${it.name} +${it.qty}kg @ RM${it.costKg}/kg → New avg: RM${newAvgCostKg.toFixed(2)}/kg`);
+                logAction('Bought', `${it.name} — ${it.qty.toFixed(2)}kg`);
             });
             saveData();
-            alert(`✅ ${items.length} item(s) stocked in!`);
+            alert(`✅ ${items.length} item(s) bought!`);
             closeModal('multiStockIn');
             refreshAll();
         }
@@ -389,7 +438,7 @@
                 items.push({name, qty, totalPrice, priceKg, isSale, costKg, costTotal, profit});
             });
             if (!valid || !items.length) return;
-            if (!confirm(`Confirm stock out ${items.length} item(s)?`)) return;
+            if (!confirm(`Confirm sell ${items.length} item(s)?`)) return;
             items.forEach(it => {
                 riceTypes[it.name].stock -= it.qty;
                 if (it.isSale) {
@@ -402,13 +451,13 @@
                         profit: it.profit,
                         t: getTimestamp()
                     });
-                    logAction('SALE', `${it.name} -${it.qty}kg | Total RM${it.totalPrice.toFixed(2)} @ ${it.priceKg.toFixed(2)}/kg | Profit RM${it.profit.toFixed(2)}`);
+                    logAction('Sold', `${it.name} — ${it.qty.toFixed(2)}kg`);
                 } else {
-                    logAction('WASTE', `${it.name} -${it.qty}kg (not in sales)`);
+                    logAction('Sold', `${it.name} — ${it.qty.toFixed(2)}kg (waste)`);
                 }
             });
             saveData();
-            alert(`✅ ${items.length} item(s) processed!`);
+            alert(`✅ ${items.length} item(s) sold!`);
             closeModal('multiStockOut');
             refreshAll();
         }
@@ -444,15 +493,30 @@
             } catch { alert('❌ Invalid backup code'); }
         }
         function showLog() {
-            document.getElementById('logContent').value = transactionLog.length ? 
-                transactionLog.map(x=>`[${x.t}] ${x.a.padEnd(10)} — ${x.d}`).join('\n') : 'Empty';
+            // Show only: date, Bought/Sold, rice type, kg
+            const formatted = transactionLog
+                .filter(x => x.a === 'Bought' || x.a === 'Sold')
+                .map(x => {
+                    const date = x.date || (x.t ? x.t.substring(0, 10).split('-').reverse().join('/') : '—');
+                    return `${date} ${x.a}: ${x.d}`;
+                })
+                .join('\n');
+            document.getElementById('logContent').value = formatted || 'No buy/sell transactions yet.';
             openModal('log');
         }
         function refreshAll() {
-            // Inventory table
+            // Inventory table with EDIT button
             const tb = document.getElementById('inventoryBody'); tb.innerHTML = '';
-            if (!Object.keys(riceTypes).length) tb.innerHTML = '<tr><td colspan="4" class="empty-hint">Add rice first</td></tr>';
-            else for(const [n,d] of Object.entries(riceTypes)) tb.innerHTML += `<tr><td><b>${n}</b></td><td>${d.stock.toFixed(2)}</td><td>${d.cost_per_kg.toFixed(2)}</td><td>${d.price_per_kg.toFixed(2)}</td></tr>`;
+            if (!Object.keys(riceTypes).length) tb.innerHTML = '<tr><td colspan="5" class="empty-hint">Add rice first</td></tr>';
+            else for(const [n,d] of Object.entries(riceTypes)) {
+                tb.innerHTML += `<tr>
+                    <td><b>${n}</b></td>
+                    <td>${d.stock.toFixed(2)}</td>
+                    <td>${d.cost_per_kg.toFixed(2)}</td>
+                    <td>${d.price_per_kg.toFixed(2)}</td>
+                    <td><button class="edit-btn" onclick="openEditRice('${n.replace(/'/g, "\\'")}')">✏️ Edit</button></td>
+                </tr>`;
+            }
             
             // Summary
             let inc=0, cost=0, profit=0;
@@ -461,16 +525,21 @@
             document.getElementById('totalCost').textContent = cost.toFixed(2);
             document.getElementById('totalProfit').textContent = profit.toFixed(2);
             
-            // Sales list
+            // Recent Transactions — now matches log format: date, Bought/Sold, rice type, kg
             const sl = document.getElementById('saleList'); sl.innerHTML = '';
-            if (!salesRecords.length) sl.innerHTML = '<div class="empty-hint">No transactions yet.</div>';
-            else salesRecords.slice().reverse().forEach(s=>{
-                sl.innerHTML += `<div style="padding:10px;border-bottom:1px solid #eee;font-size:0.9rem;">
-                    <b>${s.name}</b> — ${s.qty.toFixed(2)}kg<br>
-                    Total Sold: <b>RM${(s.total_price||0).toFixed(2)}</b> @ ${(s.price_per_kg||0).toFixed(2)}/kg<br>
-                    Profit: RM${(s.profit||0).toFixed(2)}
-                </div>`;
-            });
+            const txnList = transactionLog.filter(x => x.a === 'Bought' || x.a === 'Sold');
+            if (!txnList.length) {
+                sl.innerHTML = '<div class="empty-hint">No transactions yet.</div>';
+            } else {
+                txnList.slice().reverse().forEach(x => {
+                    const date = x.date || (x.t ? x.t.substring(0, 10).split('-').reverse().join('/') : '—');
+                    const cls = x.a === 'Bought' ? 'txn-buy' : 'txn-sell';
+                    sl.innerHTML += `<div class="txn-item">
+                        <span style="color:#718096;">${date}</span>
+                        <span class="${cls}">${x.a}</span>: ${x.d}
+                    </div>`;
+                });
+            }
         }
         
         loadData(); refreshAll();
